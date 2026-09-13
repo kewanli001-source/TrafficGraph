@@ -1,0 +1,469 @@
+"""FastAPI 服务层 — Action Agent HTTP API
+
+所属层：services
+依赖：fastapi, uvicorn, src.graph.builder, src.schemas, src.config.settings
+对接算法层：N/A（通过 Graph 间接调用 Tools）
+"""
+import json
+import logging
+import secrets
+from pathlib import Path
+from typing import AsyncIterator, List, Optional
+
+from fastapi import Depends, FastAPI, HTTPException, Security
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
+from langchain_core.messages import AIMessageChunk, ToolMessage
+
+from src.config.llm import message_content_text
+from src.config.settings import settings
+from src.graph.builder import build_graph_config, graph
+from src.schemas.action_agent import ActionAgentInput, UIAction
+from src.schemas.data_card import ReportExportRequest
+from src.schemas.v3_engine import IntentItem
+from src.sim import get_sim
+from src.tools.export_data import export_data_table
+
+logger = logging.getLogger(__name__)
+
+# Phase 6 导出文件落盘目录（与 src/tools/export_data.py 同路径，data/ 已 gitignore）
+_EXPORT_DIR = Path(__file__).resolve().parents[2] / "data" / "exports"
+_WEB_DIR = Path(__file__).resolve().parent.parent / "frontend" / "web"
+
+app = FastAPI(
+    title="TrafficGraph Action Agent",
+    description="智慧交通指挥中心多模态调度 Agent HTTP API",
+    version="0.4.0",
+)
+
+# ── CORS 中间件 ──────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.api.cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ── 鉴权（可选） ─────────────────────────────────────────────────
+_security = HTTPBearer(auto_error=False)
+
+
+async def _verify_api_key(
+    credentials: HTTPAuthorizationCredentials = Security(_security),
+) -> None:
+    """Bearer Token 鉴权。api_key 为空时跳过（开发模式）。
+
+    Raises:
+        HTTPException: 401 — 密钥不匹配
+    """
+    expected = settings.api.api_key
+    if not expected:
+        return  # 开发模式，不鉴权
+    if credentials is None or not secrets.compare_digest(credentials.credentials, expected):
+        raise HTTPException(status_code=401, detail="无效的 API Key")
+
+
+@app.get("/health")
+async def health() -> dict:
+    """健康检查端点。
+
+    Returns:
+        包含 status 字段的状态字典
+    """
+    return {"status": "ok"}
+
+
+@app.get("/dashboard")
+def dashboard(date: Optional[str] = None) -> dict:
+    """返回指挥大屏所需的实时交通态势快照。
+
+    Args:
+        date: 可选 ISO8601 时刻；缺省使用当前仿真时钟。
+
+    Returns:
+        包含全市指标、辖区、干线、路口和活跃事件的聚合数据。
+    """
+    sim = get_sim()
+    overview = sim.city_overview(date)
+    if "error" in overview:
+        raise HTTPException(status_code=400, detail=overview["error"])
+
+    intersections = []
+    for intersection in sim.net.intersections:
+        status = sim.intersection_status(intersection.id, date)
+        if "error" in status:
+            continue
+        intersections.append(
+            {
+                "id": status["id"],
+                "name": status["name"],
+                "district": status["district"],
+                "district_id": intersection.district,
+                "corridor": status["corridor"],
+                "corridor_id": intersection.corridor,
+                "road_class": intersection.road_class,
+                "los": status["los"],
+                "saturation": status["saturation"],
+                "avg_delay_s": status["avg_delay_s"],
+                "queue_m": max((item["queue_m"] for item in status["queue"]), default=0),
+                "current_phase": status["current_phase"],
+                "active_plan": status["active_plan"],
+                "incident_effect": status["incident_effect"],
+            }
+        )
+
+    corridors = [
+        sim.corridor_congestion(corridor.id, date)
+        for corridor in sim.net.corridors
+    ]
+    districts = [
+        sim.district_congestion(district.id, date)
+        for district in sim.net.districts
+    ]
+    incidents = sim.active_incidents()
+
+    return {
+        "timestamp": overview["timestamp"],
+        "city": overview,
+        "districts": districts,
+        "corridors": corridors,
+        "intersections": intersections,
+        "incidents": incidents,
+    }
+
+
+@app.get("/traffic/intersection/{intersection_id}")
+def traffic_intersection_detail(intersection_id: str) -> dict:
+    """返回单路口的实时状态、配时和优化建议。
+
+    Args:
+        intersection_id: 路口 ID，如 JK-SJ03。
+
+    Returns:
+        包含 status、signal 和 optimization 的聚合详情。
+
+    Raises:
+        HTTPException: 路口不存在时返回 404。
+    """
+    sim = get_sim()
+    if sim.net.intersection(intersection_id) is None:
+        raise HTTPException(status_code=404, detail=f"路口不存在: {intersection_id}")
+
+    status = sim.intersection_status(intersection_id)
+    signal = sim.signal_timing(intersection_id)
+    optimization = sim.signal_optimization_suggestion(intersection_id=intersection_id)
+    flow_date = sim.now().strftime("%Y-%m-%d")
+    flow = sim.flow_history(
+        intersection_id=intersection_id,
+        start_date=flow_date,
+        end_date=flow_date,
+    )
+    return {
+        "status": status,
+        "signal": signal,
+        "optimization": optimization,
+        "flow": flow,
+    }
+
+
+@app.post("/report/export")
+def report_export(request: ReportExportRequest) -> dict:
+    """根据前端当前视图生成表格、图表和 CSV 报告。
+
+    Args:
+        request: 报告标题、表格列/行、图表定义和文件名。
+
+    Returns:
+        DataCard 字典。
+
+    Raises:
+        HTTPException: 报告生成失败时返回 400。
+    """
+    result = export_data_table(
+        title=request.title,
+        columns=[column.model_dump() for column in request.columns],
+        rows=request.rows,
+        filename=request.filename,
+        charts=[chart.model_dump() for chart in request.charts],
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.get("/export/{task_id}")
+async def download_export(task_id: str) -> FileResponse:
+    """下载导出的 CSV 文件（Phase 6 数据导出）。
+
+    task_id 由 export_data_table 工具生成（uuid4 hex），对应 data/exports/{task_id}.csv。
+    不鉴权：task_id 不可猜、文件短期 ephemeral，下载链接需支持 ``<a href>`` 直接点击。
+
+    Args:
+        task_id: 导出任务 ID（uuid4 hex）
+
+    Returns:
+        FileResponse（text/csv，含 Content-Disposition 文件名）
+
+    Raises:
+        HTTPException: 400 非法 task_id；404 文件不存在/已过期
+    """
+    # 仅允许 uuid hex，防止路径穿越
+    if not task_id or not all(c in "0123456789abcdef" for c in task_id):
+        raise HTTPException(status_code=400, detail="非法 task_id")
+    file_path = _EXPORT_DIR / f"{task_id}.csv"
+    if not file_path.is_file():
+        raise HTTPException(status_code=404, detail="导出文件不存在或已过期")
+    return FileResponse(
+        path=str(file_path),
+        media_type="text/csv",
+        filename=f"{task_id}.csv",
+    )
+
+
+@app.post("/invoke")
+async def invoke(
+    input_data: ActionAgentInput,
+    _: None = Depends(_verify_api_key),
+) -> JSONResponse:
+    """同步运行 Agent，返回最终报告和 UI 动作列表。
+
+    接收用户输入和可选页面上下文，经过完整的 ReAct 循环后，
+    返回 LLM 生成的 Markdown 报告和所有待执行的 UI 动作。
+
+    Args:
+        input_data: 包含 user_input 和可选 page_context 的请求体
+
+    Returns:
+        JSONResponse，body 含 report(str) 和 actions(List[dict])
+
+    Raises:
+        HTTPException: Agent 执行失败时返回 500
+    """
+    run_config = build_graph_config(input_data.thread_id)
+    thread_id = run_config["configurable"]["thread_id"]
+    initial_state: dict = {"user_input": input_data.user_input, "thread_id": thread_id}
+    if input_data.page_context is not None:
+        initial_state["page_context"] = input_data.page_context
+        if input_data.page_context.area_id is not None:
+            initial_state["area_id"] = input_data.page_context.area_id
+
+    try:
+        result = graph.invoke(initial_state, config=run_config)
+    except Exception as e:
+        logger.error(f"Agent 调用失败: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent 执行失败: {e}")
+
+    error = result.get("error")
+    if error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+    report: str = result.get("final_report", "")
+    pending_actions: List[UIAction] = result.get("pending_actions", [])
+
+    actions_dicts = []
+    for action in pending_actions:
+        if isinstance(action, UIAction):
+            actions_dicts.append(action.model_dump())
+        elif isinstance(action, dict):
+            actions_dicts.append(action)
+        else:
+            actions_dicts.append(str(action))
+
+    # Phase 6 导出数据卡片
+    pending_data_cards = result.get("pending_data_cards", [])
+    data_cards_dicts = [
+        card.model_dump() if hasattr(card, "model_dump") else card
+        for card in pending_data_cards
+    ]
+
+    return JSONResponse(content={
+        "report": report,
+        "actions": actions_dicts,
+        "data_cards": data_cards_dicts,
+        "thread_id": thread_id,
+    })
+
+
+async def _sse_generator(input_data: ActionAgentInput) -> AsyncIterator[str]:
+    """SSE 流式推送生成器：按节点区分事件类型，推送细粒度 SSE 事件。
+
+    事件类型：
+    - thinking: cognitive_parser 的思考文本（流式）
+    - tool_call: 工具调用（name + args）
+    - tool_result: 工具返回结果（name + result）
+    - rag_sources: RAG 知识库检索结果
+    - text: interpreter_generator 的最终回答（流式）
+    - intent_plan: 多意图识别计划
+    - action: 页面跳转动作
+    - data_card: 数据卡片（表格 + 下载按钮，Phase 6 导出）
+    - error: 错误
+    - done: 流结束
+
+    Args:
+        input_data: 包含 user_input 和可选 page_context 的请求体
+
+    Yields:
+        SSE 格式字符串
+    """
+    run_config = build_graph_config(input_data.thread_id)
+    thread_id = run_config["configurable"]["thread_id"]
+    initial_state: dict = {"user_input": input_data.user_input, "thread_id": thread_id}
+    if input_data.page_context is not None:
+        initial_state["page_context"] = input_data.page_context
+        if input_data.page_context.area_id is not None:
+            initial_state["area_id"] = input_data.page_context.area_id
+
+    # 状态追踪
+    rag_sent = False       # RAG 来源是否已发送
+    tools_called = False   # 是否已发送过 tool_call（区分 thinking vs text）
+    tool_call_map = {}     # tool_call_id → tool_name 映射
+    text_emitted = False   # 是否已发送过 text 事件
+    thinking_buffer = ""   # 缓存 thinking 内容（用于无工具调用时转为 text）
+
+    try:
+        async for event in graph.astream_events(
+            initial_state,
+            config=run_config,
+            version="v2",
+        ):
+            kind = event["event"]
+            metadata = event.get("metadata", {})
+            node = metadata.get("langgraph_node", "")
+
+            # ── 流式文本：根据工具是否已调用来区分 thinking vs text ──
+            if kind == "on_chat_model_stream":
+                chunk = event["data"]["chunk"]
+                if isinstance(chunk, AIMessageChunk) and chunk.content:
+                    chunk_text = message_content_text(chunk.content)
+                    if node == "cognitive_parser":
+                        if tools_called:
+                            # 工具已调用后的 cognitive_parser 输出 = 最终回答
+                            text_emitted = True
+                            yield f"event: text\ndata: {json.dumps({'text': chunk_text}, ensure_ascii=False)}\n\n"
+                        else:
+                            # 工具调用前的 cognitive_parser 输出 = 思考过程
+                            thinking_buffer += chunk_text
+                            yield f"event: thinking\ndata: {json.dumps({'text': chunk_text}, ensure_ascii=False)}\n\n"
+                    elif node == "interpreter_generator":
+                        # interpreter_generator 的输出也是最终回答
+                        text_emitted = True
+                        yield f"event: text\ndata: {json.dumps({'text': chunk_text}, ensure_ascii=False)}\n\n"
+
+            # ── 工具调用：从 cognitive_parser 的 tool_calls ──
+            elif kind == "on_chat_model_end" and node == "cognitive_parser":
+                output = event.get("data", {}).get("output", {})
+                if hasattr(output, "tool_calls") and output.tool_calls:
+                    tools_called = True
+                    for tc in output.tool_calls:
+                        # 记录 tool_call_id → name 映射
+                        tc_id = tc.get("id", "")
+                        if tc_id:
+                            tool_call_map[tc_id] = tc["name"]
+                        yield f"event: tool_call\ndata: {json.dumps({'name': tc['name'], 'args': tc.get('args', {})}, ensure_ascii=False)}\n\n"
+
+            # ── 工具结果 + RAG 来源：从 v3_engine_router 的 chain_stream ──
+            elif kind == "on_chain_stream" and node == "v3_engine_router":
+                chunk = event.get("data", {}).get("chunk", {})
+                if isinstance(chunk, dict):
+                    messages = chunk.get("messages", [])
+                    for msg in messages:
+                        if isinstance(msg, ToolMessage) and msg.content:
+                            # 通过 tool_call_id 查找工具名
+                            tc_id = getattr(msg, "tool_call_id", "")
+                            tool_name = tool_call_map.get(tc_id, getattr(msg, "name", "") or "unknown")
+                            # 尝试解析 JSON 内容
+                            try:
+                                result = json.loads(msg.content)
+                            except (json.JSONDecodeError, TypeError):
+                                result = msg.content
+                            yield f"event: tool_result\ndata: {json.dumps({'name': tool_name, 'result': result}, ensure_ascii=False, default=str)}\n\n"
+
+                    # RAG 来源
+                    if not rag_sent and chunk.get("traffic_knowledge"):
+                        rag_sent = True
+                        yield f"event: rag_sources\ndata: {json.dumps(chunk['traffic_knowledge'], ensure_ascii=False, default=str)}\n\n"
+
+            # ── chain_end：intent_plan + action + rag_sources ──
+            elif kind == "on_chain_end":
+                output = event.get("data", {}).get("output", {})
+                if isinstance(output, dict):
+                    # intent_plan
+                    intent_plan = output.get("intent_plan")
+                    if intent_plan:
+                        intents_payload = [
+                            i.model_dump() if isinstance(i, IntentItem)
+                            else (i if isinstance(i, dict) else {"id": 0, "description": str(i)})
+                            for i in intent_plan
+                        ]
+                        yield f"event: intent_plan\ndata: {json.dumps({'intents': intents_payload}, ensure_ascii=False)}\n\n"
+
+                    # action
+                    actions = output.get("pending_actions", [])
+                    for action in actions:
+                        payload = action.model_dump() if isinstance(action, UIAction) else action
+                        yield f"event: action\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+
+                    # data_card（Phase 6 导出：表格 + 下载按钮）
+                    data_cards = output.get("pending_data_cards", [])
+                    for card in data_cards:
+                        payload = card.model_dump() if hasattr(card, "model_dump") else card
+                        yield f"event: data_card\ndata: {json.dumps(payload, ensure_ascii=False, default=str)}\n\n"
+
+                    # RAG sources (fallback if not caught in chain_stream)
+                    if not rag_sent and output.get("traffic_knowledge"):
+                        rag_sent = True
+                        yield f"event: rag_sources\ndata: {json.dumps(output['traffic_knowledge'], ensure_ascii=False, default=str)}\n\n"
+
+    except Exception as e:
+        logger.error(f"SSE 流式推送失败: {e}")
+        yield f"event: error\ndata: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    # 无工具调用时，cognitive_parser 的输出即为最终回答，补发为 text 事件
+    # 场景：用户问通用问题，LLM 直接回答不调用工具
+    if not text_emitted and thinking_buffer:
+        yield f"event: text\ndata: {json.dumps({'text': thinking_buffer}, ensure_ascii=False)}\n\n"
+
+    yield "event: done\ndata: {}\n\n"
+
+
+@app.post("/stream")
+async def stream(
+    input_data: ActionAgentInput,
+    _: None = Depends(_verify_api_key),
+) -> StreamingResponse:
+    """流式运行 Agent，以 SSE 格式推送细粒度事件。
+
+    SSE 事件类型:
+    - thinking: 思考过程文本（来自 cognitive_parser，可折叠/丢弃）
+    - tool_call: 工具调用（name + args，可折叠/丢弃）
+    - tool_result: 工具返回结果（name + result，可折叠/丢弃）
+    - rag_sources: RAG 知识库检索结果（可折叠/丢弃）
+    - text: 最终回答文本（来自 interpreter_generator，主体内容）
+    - intent_plan: 多意图识别计划
+    - action: 页面跳转动作
+    - error: 错误信息
+    - done: 流结束标志
+
+    Args:
+        input_data: 包含 user_input 和可选 page_context 的请求体
+
+    Returns:
+        StreamingResponse（media_type=text/event-stream）
+    """
+    return StreamingResponse(_sse_generator(input_data), media_type="text/event-stream")
+
+
+if _WEB_DIR.exists():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(_WEB_DIR)),
+        name="web-assets",
+    )
+
+    @app.get("/", include_in_schema=False)
+    async def web_console() -> FileResponse:
+        """返回智慧交通指挥 Web 控制台。"""
+        return FileResponse(_WEB_DIR / "index.html")

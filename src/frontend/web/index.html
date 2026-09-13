@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d1411">
+  <title>TrafficGraph · 上海市智慧交通指挥中心</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="console-shell">
+    <aside class="rail" aria-label="主导航">
+      <div class="brand">
+        <span class="brand-mark">TG</span>
+        <div>
+          <strong>TrafficGraph</strong>
+          <small>上海交通指挥</small>
+        </div>
+      </div>
+      <div class="rail-section-label">指挥视图</div>
+      <nav class="rail-nav">
+        <button class="rail-button is-active" data-view="overview">
+          <span class="rail-code">01</span>
+          <span class="rail-copy"><strong>态势总览</strong><small>全市运行与事件</small></span>
+        </button>
+        <button class="rail-button" data-view="network">
+          <span class="rail-code">02</span>
+          <span class="rail-copy"><strong>路网监控</strong><small>路口台账与诊断</small></span>
+        </button>
+        <button class="rail-button" data-view="signals">
+          <span class="rail-code">03</span>
+          <span class="rail-copy"><strong>信号控制</strong><small>配时与绿波协同</small></span>
+        </button>
+        <button class="rail-button" data-view="incidents">
+          <span class="rail-code">04</span>
+          <span class="rail-copy"><strong>事件处置</strong><small>警情与资源调度</small></span>
+        </button>
+      </nav>
+      <div class="rail-footer">
+        <div class="rail-status">
+          <span class="pulse-dot"></span>
+          <div><strong>TrafficSim</strong><small>数据链路正常</small></div>
+        </div>
+        <div class="rail-version">OPS CONSOLE / V1.0</div>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="title-block">
+          <p class="eyebrow">SHANGHAI URBAN TRAFFIC OPERATIONS</p>
+          <h1>上海市智慧交通指挥中心</h1>
+          <p class="system-subtitle"><span id="view-title">态势总览</span> · 多源融合 / 信号协同 / 事件指挥</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="status-cluster">
+            <span class="status-pill online"><i></i>在线</span>
+            <span class="status-pill"><b id="top-alert-count">--</b> 活跃事件</span>
+          </div>
+          <div class="clock-block">
+            <strong id="live-clock">--:--:--</strong>
+            <span id="data-timestamp">等待数据</span>
+          </div>
+          <button id="refresh-dashboard" class="icon-button" type="button" title="刷新态势">
+            <span aria-hidden="true">↻</span>
+          </button>
+          <button id="export-view" class="command-button" type="button">导出当前视图</button>
+        </div>
+      </header>
+
+      <section class="view-panel is-active" data-view-panel="overview">
+        <div class="kpi-grid">
+          <article class="kpi">
+            <div class="kpi-head">
+              <span class="kpi-code">CONGESTION</span>
+              <span class="trend-badge" id="kpi-index-trend">--</span>
+            </div>
+            <div class="kpi-value"><strong id="kpi-index">--</strong><span>/ 10</span></div>
+            <div class="kpi-foot"><span>城市拥堵指数</span><span class="mini-bar"><i id="kpi-index-bar"></i></span></div>
+          </article>
+          <article class="kpi">
+            <div class="kpi-head">
+              <span class="kpi-code">NETWORK SPEED</span>
+              <span class="trend-badge neutral" id="kpi-peak">--</span>
+            </div>
+            <div class="kpi-value"><strong id="kpi-speed">--</strong><span>km/h</span></div>
+            <div class="kpi-foot"><span>全市平均车速</span><span class="mini-bar"><i id="kpi-speed-bar"></i></span></div>
+          </article>
+          <article class="kpi alert">
+            <div class="kpi-head">
+              <span class="kpi-code">INCIDENT LOAD</span>
+              <span class="trend-badge danger" id="kpi-incident-note">--</span>
+            </div>
+            <div class="kpi-value"><strong id="kpi-incidents">--</strong><span>起</span></div>
+            <div class="kpi-foot"><span>活跃交通事件</span><span class="signal-lamp"></span></div>
+          </article>
+          <article class="kpi">
+            <div class="kpi-head">
+              <span class="kpi-code">BOTTLENECK</span>
+              <span class="trend-badge neutral">TOP 1</span>
+            </div>
+            <div class="kpi-value compact"><strong id="kpi-worst">--</strong></div>
+            <div class="kpi-foot"><span id="kpi-worst-note">等待数据</span><span class="mini-bar warm"><i id="kpi-worst-bar"></i></span></div>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel map-panel">
+            <header class="panel-header map-header">
+              <div><p class="eyebrow">NETWORK PULSE / LIVE</p><h2>上海市路网实时态势</h2></div>
+              <div class="map-header-meta">
+                <span><i class="legend-dot safe"></i>畅通</span>
+                <span><i class="legend-dot watch"></i>关注</span>
+                <span><i class="legend-dot busy"></i>拥堵</span>
+                <span><i class="legend-dot critical"></i>严重</span>
+              </div>
+            </header>
+            <div class="map-canvas">
+              <div class="map-watermark">SH / 31.2304 N / 121.4737 E</div>
+              <div class="map-center-metric">
+                <span>全市指数</span><strong id="map-city-index">--</strong><small id="map-city-speed">-- km/h</small>
+              </div>
+              <svg id="network-map" viewBox="0 0 1120 520" role="img" aria-label="上海市干线及路口态势"></svg>
+            </div>
+            <div class="map-footer">
+              <div id="intersection-inspector" class="inspector">
+                <span class="inspector-kicker">路口探查</span>
+                <strong>点击路网节点查看实时指标</strong>
+                <span class="inspector-id">--</span>
+              </div>
+              <div class="map-summary">
+                <div><span>监控路口</span><strong id="map-intersection-count">--</strong></div>
+                <div><span>干线走廊</span><strong id="map-corridor-count">--</strong></div>
+                <div><span>绿波正常</span><strong id="map-greenwave-count">--</strong></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel incident-panel">
+            <header class="panel-header">
+              <div><p class="eyebrow">INCIDENT DESK</p><h2>事件处置台</h2></div>
+              <span id="incident-count" class="count-badge">0</span>
+            </header>
+            <div class="incident-stats">
+              <div><span>重大</span><strong id="incident-critical">0</strong></div>
+              <div><span>较大</span><strong id="incident-major">0</strong></div>
+              <div><span>施工</span><strong id="incident-construction">0</strong></div>
+            </div>
+            <div id="incident-list" class="event-list"></div>
+            <div class="resource-status">
+              <div class="resource-head"><span>处置资源</span><small>实时可调度</small></div>
+              <div class="resource-row"><span><i class="resource-dot police"></i>警力</span><div class="resource-track"><i style="width:78%"></i></div><strong>78%</strong></div>
+              <div class="resource-row"><span><i class="resource-dot tow"></i>拖车</span><div class="resource-track"><i style="width:64%"></i></div><strong>64%</strong></div>
+              <div class="resource-row"><span><i class="resource-dot signal"></i>信号保障</span><div class="resource-track"><i style="width:86%"></i></div><strong>86%</strong></div>
+            </div>
+          </article>
+        </div>
+
+      </section>
+
+      <section class="view-panel" data-view-panel="network">
+        <div class="view-grid network-view-grid">
+          <article class="panel table-panel">
+            <header class="panel-header">
+              <div><p class="eyebrow">INTERSECTION LEDGER</p><h2>路口实时台账</h2></div>
+              <span id="network-row-count" class="panel-tag">--</span>
+            </header>
+            <div class="table-toolbar">
+              <input id="intersection-search" type="search" placeholder="搜索路口名称或 ID">
+              <select id="corridor-filter"><option value="">全部干线</option></select>
+            </div>
+            <div class="data-table-wrap ledger-wrap">
+              <table class="ops-table">
+                <thead><tr><th>路口</th><th>干线</th><th>LOS</th><th>饱和度</th><th>延误</th><th>排队</th><th>当前相位</th></tr></thead>
+                <tbody id="intersection-table-body"></tbody>
+              </table>
+            </div>
+          </article>
+          <article class="panel detail-panel">
+            <header class="panel-header"><div><p class="eyebrow">INTERSECTION DETAIL</p><h2>路口诊断</h2></div><span id="network-detail-id" class="panel-tag">未选择</span></header>
+            <div id="network-detail" class="detail-content"><div class="empty-state">从左侧台账选择路口</div></div>
+          </article>
+          <article class="panel">
+            <header class="panel-header"><div><p class="eyebrow">DISTRICT WATCH</p><h2>辖区压力</h2></div><span id="district-summary" class="panel-tag">--</span></header>
+            <div id="district-list" class="district-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view-panel" data-view-panel="signals">
+        <div class="view-grid signals-view-grid">
+          <article class="panel">
+            <header class="panel-header"><div><p class="eyebrow">CORRIDOR COORDINATION</p><h2>干线协调状态</h2></div><span class="panel-tag">实时</span></header>
+            <div id="signal-corridor-board" class="signal-corridor-board"></div>
+          </article>
+          <article class="panel signal-detail-panel">
+            <header class="panel-header"><div><p class="eyebrow">SIGNAL PLAN</p><h2>路口配时控制</h2></div><span id="signal-detail-id" class="panel-tag">未选择</span></header>
+            <div id="signal-detail" class="detail-content"><div class="empty-state">选择干线下的路口查看配时</div></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view-panel" data-view-panel="incidents">
+        <div class="view-grid incident-view-grid">
+          <article class="panel">
+            <header class="panel-header"><div><p class="eyebrow">ACTIVE INCIDENT QUEUE</p><h2>事件处置队列</h2></div><span id="incident-queue-count" class="panel-tag">--</span></header>
+            <div id="incident-command-list" class="incident-command-list"></div>
+          </article>
+          <article class="panel">
+            <header class="panel-header"><div><p class="eyebrow">DISPATCH BOARD</p><h2>资源与恢复时间</h2></div><span class="panel-tag">调度视图</span></header>
+            <div id="dispatch-board" class="detail-content"></div>
+          </article>
+          <article class="panel insight-panel">
+            <header class="panel-header"><div><p class="eyebrow">DECISION BRIEF</p><h2>研判提示</h2></div><span class="panel-tag">自动生成</span></header>
+            <div id="insight-list" class="insight-list"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <aside id="copilot" class="copilot" aria-label="指挥 Copilot">
+      <header class="copilot-header">
+        <div class="copilot-title">
+          <span class="agent-mark">AI</span>
+          <div><strong>指挥 Copilot</strong><small>态势研判 · 信号建议 · 事件调度</small></div>
+        </div>
+        <span class="online-label"><i></i>在线</span>
+      </header>
+      <div class="context-bar">
+        <span>上下文</span>
+        <button type="button" class="is-active" data-context="上海全市">上海全市</button>
+        <button type="button" data-context="中心商务区">中心商务区</button>
+      </div>
+      <div id="chat-log" class="chat-log">
+        <article class="message assistant">
+          <div class="message-meta"><span>TRAFFICGRAPH</span><small>刚刚</small></div>
+          <div class="message-body"><p>可直接查询全市态势、指定路口运行、信号配时、绿波状态、交通事件和数据导出。Agent 回复不会自动切换左侧工作区。</p></div>
+          <div class="suggestion-grid">
+            <button type="button" data-prompt="现在全市哪里最堵？">全市拥堵 Top5</button>
+            <button type="button" data-prompt="JK-SJ03 现在堵不堵？">诊断 JK-SJ03</button>
+            <button type="button" data-prompt="给我一份 JK-BJ03 的信号优化建议，并说明安全约束。">信号优化建议</button>
+            <button type="button" data-prompt="现在有哪些交通事件和施工管制？">查看活跃事件</button>
+          </div>
+        </article>
+      </div>
+      <form id="chat-form" class="composer">
+        <div class="composer-topline"><span>SSE / TOOLS / RAG</span><small>Enter 发送 · Shift + Enter 换行</small></div>
+        <textarea id="chat-input" rows="3" placeholder="输入交通态势、信号、事件或调度问题…" aria-label="输入问题"></textarea>
+        <div class="composer-footer"><span id="agent-state">等待指令</span><button id="send-button" type="submit">发送指令</button></div>
+      </form>
+    </aside>
+  </div>
+  <section id="report-drawer" class="report-drawer" aria-hidden="true">
+    <header>
+      <div>
+        <p class="eyebrow">REPORT OUTPUT</p>
+        <strong id="report-drawer-title">数据报告</strong>
+      </div>
+      <button id="close-report" type="button">关闭</button>
+    </header>
+    <div id="report-drawer-body" class="report-drawer-body"></div>
+  </section>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

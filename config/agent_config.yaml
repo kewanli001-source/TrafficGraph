@@ -1,0 +1,56 @@
+# Agent 配置文件（默认值，优先级: 环境变量 > 此文件）
+# 实际运行时由 .env 中的 LLM_PROVIDER / DEEPSEEK_MODEL 等覆盖
+
+# 模型配置
+model:
+  provider: "openai"          # .env LLM_PROVIDER 覆盖: deepseek | openai | anthropic
+  name: "gpt-4o"              # .env DEEPSEEK_MODEL / OPENAI_MODEL / ANTHROPIC_MODEL 覆盖
+  temperature: 0.7
+  max_tokens: 2000
+
+# Agent 配置
+agent:
+  max_iterations: 10          # .env AGENT_MAX_ITERATIONS 覆盖
+  timeout: 60
+
+# RAG 检索配置
+rag:
+  top_k: 3                    # 检索返回条数（Phase 3 从 5 降至 3，减少冗余）
+  confidence_threshold: 0.6   # 置信度阈值，top-1 distance 超过此值标记 low_confidence
+  hash_confidence_threshold: 0.85  # 离线 hashing 向量器阈值（BGE 使用 confidence_threshold）
+  dedup_similarity: 0.98      # 去重相似度阈值，cosine_sim > 此值的重复片段被剔除（0.98 = 几乎完全相同才去重）
+
+# 工具列表（代码中通过 src/tools/__init__.py 的 TOOL_REGISTRY 注册，此处仅作记录）
+# 当前工具：12 个交通数据工具 + query_traffic_knowledge + 导航/导出/记忆工具
+
+# 输出配置
+output:
+  language: "zh"
+  format: "markdown"
+
+# API 服务配置
+api:
+  host: "0.0.0.0"                   # .env API_HOST 覆盖
+  port: 8000                        # .env API_PORT 覆盖
+  cors_origins: ["*"]               # .env API_CORS_ORIGINS 覆盖（逗号分隔），生产环境应限定具体域名
+  api_key: ""                       # .env API_KEY 覆盖；空 = 不启用鉴权（开发模式），填值后前端需带 Bearer token
+
+# 记忆模块配置（默认关闭；开启后 L1 checkpoint / L2 store 共用 PostgreSQL）
+memory:
+  enabled: false
+  postgres_dsn: "postgresql://trafficgraph:trafficgraph@localhost:5432/trafficgraph"
+  checkpoint_table: "checkpoints"
+  store_table: "store"
+  namespace_prefix: "trafficgraph"
+  env: "dev"
+  default_area_id: "local"
+  default_agent_id: "main_graph"
+  default_ttl_seconds: 0
+  auto_extract_enabled: false
+  extract_min_confidence: 0.65
+  max_memories_per_turn: 3
+  device_state_default_ttl_seconds: 86400
+  strict_msgpack: true
+  use_postgres_store: false
+  demo_file_store_enabled: false
+  demo_file_store_path: "data/long_term_memory_demo/memories.json"

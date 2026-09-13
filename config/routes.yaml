@@ -1,0 +1,178 @@
+# 智慧交通指挥中心平台 - 路由注册表
+# 版本: v2.0（交通领域替换）
+# 数据来源: TrafficGraph 指挥中心前端页面设计
+# 维护规则: 前端路由变更后需同步更新此文件
+
+# 可直接访问的路由（共20个）
+accessible_routes:
+  # 指挥总览类（3个）
+  - path: "/command/dashboard"
+    name: "指挥大屏"
+    keywords: ["指挥大屏", "大屏", "态势", "总览", "指挥"]
+    tools: ["fetch_city_overview"]
+    category: "指挥总览"
+    description: "【全市态势查询后跳转此页】城市拥堵指数、车速、活跃事件、拥堵 Top5 路口"
+
+  - path: "/command/situation"
+    name: "态势总览"
+    keywords: ["态势总览", "态势", "拥堵指数", "全市"]
+    tools: ["fetch_city_overview", "fetch_district_congestion"]
+    category: "指挥总览"
+    description: "全市与各区拥堵指数、趋势、排名"
+
+  - path: "/district/overview"
+    name: "区域态势"
+    keywords: ["区域态势", "片区", "区", "区域"]
+    tools: ["fetch_district_congestion"]
+    category: "指挥总览"
+    description: "辖区拥堵指数、排名、最堵路口"
+
+  # 路口监控类（2个）
+  - path: "/intersection/monitor"
+    name: "路口监控"
+    keywords: ["路口监控", "路口", "监控", "排队", "实时"]
+    tools: ["fetch_intersection_status"]
+    category: "路口监控"
+    description: "【路口状态查询后跳转此页】单路口服务水平、各进口道排队/饱和度/延误"
+
+  - path: "/intersection/list"
+    name: "路口台账"
+    keywords: ["路口台账", "路口列表", "台账"]
+    category: "路口监控"
+    description: "全市路口基础台账与设备接入状态"
+
+  # 信号控制类（3个）
+  - path: "/signal/timing"
+    name: "信号配时"
+    keywords: ["信号配时", "配时", "方案", "周期", "绿信比"]
+    tools: ["fetch_signal_timing"]
+    category: "信号控制"
+    description: "【配时查询后跳转此页】周期、相位绿灯、相位差、协调组"
+
+  - path: "/signal/optimization"
+    name: "信号优化"
+    keywords: ["信号优化", "优化", "建议", "调整", "配时优化"]
+    tools: ["fetch_signal_optimization_suggestion"]
+    category: "信号控制"
+    description: "【信号优化建议后跳转此页】Webster 周期校验与优化建议"
+
+  - path: "/signal/greenwave"
+    name: "绿波协调"
+    keywords: ["绿波", "绿波协调", "干线", "协调", "带宽"]
+    tools: ["fetch_corridor_congestion"]
+    category: "信号控制"
+    description: "【干线路况查询后跳转此页】绿波状态、带宽、相位差偏差"
+
+  # 事件处置类（2个）
+  - path: "/incident/active"
+    name: "事件处置"
+    keywords: ["事件处置", "事件", "事故", "处置", "清障", "施工"]
+    tools: ["fetch_active_incidents"]
+    category: "事件处置"
+    description: "当前活跃事件列表（事故/抛锚/施工/管制）与处置状态"
+
+  - path: "/incident/history"
+    name: "历史事件"
+    keywords: ["历史事件", "事件记录", "事件历史"]
+    tools: ["fetch_incident_history"]
+    category: "事件处置"
+    description: "历史事件明细（含处置时长、派单号）"
+
+  # 警力调度类（2个）
+  - path: "/dispatch/resources"
+    name: "警力调度"
+    keywords: ["警力调度", "警力", "调度", "资源", "派单"]
+    tools: ["fetch_dispatch_records"]
+    category: "警力调度"
+    description: "派单/调度记录（警力/拖车/信号/养护）"
+
+  - path: "/dispatch/patrol"
+    name: "勤务巡逻"
+    keywords: ["勤务巡逻", "巡逻", "勤务", "排班"]
+    category: "警力调度"
+    description: "路面勤务巡逻与排班计划"
+
+  # 视频巡逻类（1个）
+  - path: "/video/patrol"
+    name: "视频巡逻"
+    keywords: ["视频巡逻", "视频", "摄像头", "画面", "监控"]
+    tools: ["fetch_camera_list"]
+    category: "视频巡逻"
+    description: "摄像头清单与实时画面（可按路口/干线过滤）"
+
+  # 研判分析类（2个）
+  - path: "/analysis/congestion"
+    name: "拥堵分析"
+    keywords: ["拥堵分析", "拥堵", "常发拥堵", "排名"]
+    tools: ["fetch_district_congestion", "fetch_city_overview"]
+    category: "研判分析"
+    description: "常发拥堵点位、排名与趋势分析"
+
+  - path: "/analysis/flow"
+    name: "流量分析"
+    keywords: ["流量分析", "流量", "流量历史", "24小时"]
+    tools: ["fetch_flow_history"]
+    category: "研判分析"
+    description: "路口/干线逐时流量历史与车速曲线"
+
+  # 警情处理类（1个）
+  - path: "/alarm/handle"
+    name: "警情处理"
+    keywords: ["警情处理", "警情", "接警", "处警"]
+    tools: ["fetch_event_alarm_history"]
+    category: "警情处理"
+    description: "接处警记录（110/122/市民热线/视频识别）"
+
+  # 报告报表类（2个）
+  - path: "/report/daily"
+    name: "勤务报表"
+    keywords: ["勤务报表", "日报", "勤务", "报表"]
+    category: "报告报表"
+    description: "勤务日报与值班报表"
+
+  - path: "/report/export"
+    name: "报表管理"
+    keywords: ["报表管理", "报表", "下载报表", "导出", "报表下载"]
+    category: "报告报表"
+    description: "【导出报表数据跳转此页】系统生成的勤务/事件/警情报表列表，用户在该页面自行查看与下载"
+
+  # 地图类（2个）
+  - path: "/map/city"
+    name: "城市路网图"
+    keywords: ["城市路网图", "路网图", "地图"]
+    category: "地图"
+    description: "上海市路网 GIS 图与实时路况叠加"
+
+  - path: "/command/log"
+    name: "指挥日志"
+    keywords: ["指挥日志", "值班日志", "指挥记录"]
+    tools: ["fetch_dispatch_records"]
+    category: "地图"
+    description: "指挥中心值班处置日志"
+
+# 受限路由（需权限/项目上下文，共5个）
+restricted_routes:
+  - path: "/system/admin"
+    name: "系统管控"
+    keywords: ["系统管控", "系统管理", "后台"]
+    reason: "需管理员权限"
+
+  - path: "/signal/emergency-takeover"
+    name: "应急接管"
+    keywords: ["应急接管", "接管", "手动控制"]
+    reason: "需授权由值班长签发"
+
+  - path: "/signal/plan-edit"
+    name: "配时方案编辑"
+    keywords: ["配时编辑", "方案编辑", "修改配时"]
+    reason: "配时调整需信号工程师权限并双人复核"
+
+  - path: "/dispatch/force-induction"
+    name: "强制诱导"
+    keywords: ["强制诱导", "诱导屏", "信息发布"]
+    reason: "信息发布需宣传部门授权"
+
+  - path: "/video/archive"
+    name: "视频回放"
+    keywords: ["视频回放", "录像", "回放"]
+    reason: "录像调阅需办案审批"

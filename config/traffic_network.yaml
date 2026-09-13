@@ -1,0 +1,126 @@
+# 上海市路网模型 — TrafficSim 仿真配置
+# 版本: v1.0
+# 用途: 交通指挥 Agent 的仿真数据源（TRAFFIC_BACKEND=sim，默认）
+# 维护规则: 路网/信号方案变更后同步更新此文件与 routes.yaml
+
+city:
+  name: "上海市"
+  timezone: "Asia/Shanghai"
+  population_wan: 320
+  vehicle_count_wan: 96
+
+# ── 辖区 ──────────────────────────────────────────────
+districts:
+  - id: DIST-CBD
+    name: "中心商务区"
+  - id: DIST-OLD
+    name: "老城区"
+  - id: DIST-HT
+    name: "高新区"
+  - id: DIST-PORT
+    name: "港区"
+
+# ── 干线走廊 ──────────────────────────────────────────
+corridors:
+  - id: COR-SJ
+    name: "世纪大道"
+    road_class: "主干道"
+    length_km: 6.2
+    design_speed_kmh: 50
+    direction: "东西"
+  - id: COR-JF
+    name: "解放路"
+    road_class: "主干道"
+    length_km: 4.8
+    design_speed_kmh: 50
+    direction: "南北"
+  - id: COR-BJ
+    name: "滨江快速路"
+    road_class: "快速路"
+    length_km: 8.5
+    design_speed_kmh: 80
+    direction: "东西"
+  - id: COR-XF
+    name: "学府大街"
+    road_class: "次干道"
+    length_km: 3.6
+    design_speed_kmh: 40
+    direction: "东西"
+  - id: COR-HC
+    name: "环城路"
+    road_class: "主干道"
+    length_km: 12.0
+    design_speed_kmh: 60
+    direction: "环形"
+
+# ── 信号方案默认模板（按道路等级） ─────────────────────
+# green_s 之和 + 黄灯 ≈ cycle_s；min_green_s 为 GB 14886 行人过街下限
+signal_defaults:
+  主干道:
+    peak:    {cycle_s: 140, phases: [{name: "东西直行", green_s: 48, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 22, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 42, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 18, yellow_s: 3, min_green_s: 15}]}
+    offpeak: {cycle_s: 110, phases: [{name: "东西直行", green_s: 38, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 18, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 33, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 14, yellow_s: 3, min_green_s: 15}]}
+    night:   {cycle_s: 90,  phases: [{name: "东西直行", green_s: 50, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 14, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 18, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 0,  yellow_s: 0, min_green_s: 0}]}
+  快速路:
+    peak:    {cycle_s: 150, phases: [{name: "东西直行", green_s: 62, yellow_s: 3, min_green_s: 20}, {name: "东西左转", green_s: 20, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 45, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 14, yellow_s: 3, min_green_s: 15}]}
+    offpeak: {cycle_s: 120, phases: [{name: "东西直行", green_s: 55, yellow_s: 3, min_green_s: 20}, {name: "东西左转", green_s: 16, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 32, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 11, yellow_s: 3, min_green_s: 15}]}
+    night:   {cycle_s: 100, phases: [{name: "东西直行", green_s: 58, yellow_s: 3, min_green_s: 20}, {name: "东西左转", green_s: 12, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 21, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 0,  yellow_s: 0, min_green_s: 0}]}
+  次干道:
+    peak:    {cycle_s: 120, phases: [{name: "东西直行", green_s: 36, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 16, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 36, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 14, yellow_s: 3, min_green_s: 15}]}
+    offpeak: {cycle_s: 95,  phases: [{name: "东西直行", green_s: 30, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 13, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 30, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 11, yellow_s: 3, min_green_s: 15}]}
+    night:   {cycle_s: 80,  phases: [{name: "东西直行", green_s: 42, yellow_s: 3, min_green_s: 15}, {name: "东西左转", green_s: 12, yellow_s: 3, min_green_s: 15}, {name: "南北直行", green_s: 16, yellow_s: 3, min_green_s: 15}, {name: "南北左转", green_s: 0,  yellow_s: 0, min_green_s: 0}]}
+
+# ── 路口（24 个） ─────────────────────────────────────
+# base_volume: 早高峰小时流量（veh/h，主干道方向合计）
+# saturation: 进口道通行能力基准（veh/h/进口道）
+# offset_s: 干线协调相位差
+intersections:
+  # 世纪大道（东西主干，CBD 核心带）
+  - {id: JK-SJ01, name: "世纪大道·中山路口", district: DIST-CBD, corridor: COR-SJ, road_class: "主干道", base_volume: 1520, saturation: 5600, offset_s: 0,   coordination_group: "SJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-SJ02, name: "世纪大道·建设路口", district: DIST-CBD, corridor: COR-SJ, road_class: "主干道", base_volume: 1680, saturation: 5800, offset_s: 26,  coordination_group: "SJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-SJ03, name: "世纪大道·人民路口", district: DIST-CBD, corridor: COR-SJ, road_class: "主干道", base_volume: 1750, saturation: 5800, offset_s: 52,  coordination_group: "SJ-GW", approaches: {北: {lanes: 4}, 南: {lanes: 4}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-SJ04, name: "世纪大道·幸福路口", district: DIST-OLD, corridor: COR-SJ, road_class: "主干道", base_volume: 1380, saturation: 5400, offset_s: 78,  coordination_group: "SJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-SJ05, name: "世纪大道·环城路口", district: DIST-OLD, corridor: COR-SJ, road_class: "主干道", base_volume: 1460, saturation: 5600, offset_s: 104, coordination_group: "SJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-SJ06, name: "世纪大道·学府路口", district: DIST-HT,  corridor: COR-SJ, road_class: "主干道", base_volume: 1290, saturation: 5200, offset_s: 130, coordination_group: "SJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+
+  # 解放路（南北主干，老城—CBD 纵轴）
+  - {id: JK-JF01, name: "解放路·环城路口",   district: DIST-OLD, corridor: COR-JF, road_class: "主干道", base_volume: 1320, saturation: 5400, offset_s: 0,   coordination_group: "JF-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-JF02, name: "解放路·幸福路口",   district: DIST-OLD, corridor: COR-JF, road_class: "主干道", base_volume: 1240, saturation: 5200, offset_s: 24,  coordination_group: "JF-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 2}, 西: {lanes: 2}}}
+  - {id: JK-JF03, name: "解放路·世纪大道口", district: DIST-CBD, corridor: COR-JF, road_class: "主干道", base_volume: 1710, saturation: 5800, offset_s: 48,  coordination_group: "JF-GW", approaches: {北: {lanes: 4}, 南: {lanes: 4}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-JF04, name: "解放路·滨江路口",   district: DIST-CBD, corridor: COR-JF, road_class: "主干道", base_volume: 1560, saturation: 5600, offset_s: 72,  coordination_group: "JF-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-JF05, name: "解放路·港口大道口", district: DIST-PORT, corridor: COR-JF, road_class: "主干道", base_volume: 1180, saturation: 5000, offset_s: 96,  coordination_group: "JF-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+
+  # 滨江快速路（东西快速，货港联络）
+  - {id: JK-BJ01, name: "滨江快速·解放路口", district: DIST-CBD,  corridor: COR-BJ, road_class: "快速路", base_volume: 2240, saturation: 7200, offset_s: 0,   coordination_group: "BJ-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 5}, 西: {lanes: 5}}}
+  - {id: JK-BJ02, name: "滨江快速·港湾路口", district: DIST-PORT, corridor: COR-BJ, road_class: "快速路", base_volume: 2380, saturation: 7200, offset_s: 34,  coordination_group: "BJ-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 5}, 西: {lanes: 5}}}
+  - {id: JK-BJ03, name: "滨江快速·疏港路口", district: DIST-PORT, corridor: COR-BJ, road_class: "快速路", base_volume: 2560, saturation: 7400, offset_s: 68,  coordination_group: "BJ-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 5}, 西: {lanes: 5}}}
+  - {id: JK-BJ04, name: "滨江快速·高新路口", district: DIST-HT,   corridor: COR-BJ, road_class: "快速路", base_volume: 2150, saturation: 7000, offset_s: 102, coordination_group: "BJ-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 5}, 西: {lanes: 5}}}
+
+  # 学府大街（东西次干，高校文教带）
+  - {id: JK-XF01, name: "学府大街·世纪大道口", district: DIST-HT, corridor: COR-XF, road_class: "次干道", base_volume: 980,  saturation: 4200, offset_s: 0,   coordination_group: "XF-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-XF02, name: "学府大街·书香路口",   district: DIST-HT, corridor: COR-XF, road_class: "次干道", base_volume: 860,  saturation: 4000, offset_s: 20,  coordination_group: "XF-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 2}, 西: {lanes: 2}}}
+  - {id: JK-XF03, name: "学府大街·创新路口",   district: DIST-HT, corridor: COR-XF, road_class: "次干道", base_volume: 1020, saturation: 4200, offset_s: 40,  coordination_group: "XF-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 2}, 西: {lanes: 2}}}
+  - {id: JK-XF04, name: "学府大街·环城路口",   district: DIST-HT, corridor: COR-XF, road_class: "次干道", base_volume: 910,  saturation: 4200, offset_s: 60,  coordination_group: "XF-GW", approaches: {北: {lanes: 2}, 南: {lanes: 2}, 东: {lanes: 3}, 西: {lanes: 3}}}
+
+  # 环城路（环线主干，转换枢纽）
+  - {id: JK-HC01, name: "环城路·解放路口",   district: DIST-OLD,  corridor: COR-HC, road_class: "主干道", base_volume: 1540, saturation: 5600, offset_s: 0,   coordination_group: "HC-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-HC02, name: "环城路·世纪大道口", district: DIST-OLD,  corridor: COR-HC, road_class: "主干道", base_volume: 1680, saturation: 5800, offset_s: 30,  coordination_group: "HC-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 4}, 西: {lanes: 4}}}
+  - {id: JK-HC03, name: "环城路·学府路口",   district: DIST-HT,   corridor: COR-HC, road_class: "主干道", base_volume: 1390, saturation: 5400, offset_s: 60,  coordination_group: "HC-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-HC04, name: "环城路·疏港路口",   district: DIST-PORT, corridor: COR-HC, road_class: "主干道", base_volume: 1610, saturation: 5600, offset_s: 90,  coordination_group: "HC-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+  - {id: JK-HC05, name: "环城路·港口大道口", district: DIST-PORT, corridor: COR-HC, road_class: "主干道", base_volume: 1270, saturation: 5200, offset_s: 120, coordination_group: "HC-GW", approaches: {北: {lanes: 3}, 南: {lanes: 3}, 东: {lanes: 3}, 西: {lanes: 3}}}
+
+# ── 摄像头（每个路口 2 路，主干方向 + 人行过街） ────────
+camera_defaults:
+  per_intersection: 2
+  stream_url_pattern: "rtsp://sim.yscity.gov.cn/{camera_id}/main"
+  ptz_presets: ["全景", "进口道特写", "人行横道"]
+
+# ── 演示事件脚本（种子化生成，保证演示可复现） ────────
+incident_script:
+  daily_seed: "ys-city"
+  # 每日事件规模基线（种子化浮动 ±20%）
+  baseline:
+    critical: 1    # 重大（涉及多车/占双车道）
+    major: 3       # 较大（占一条车道）
+    minor: 5       # 一般（路肩/抛锚）
+    construction: 1  # 施工区
+  types: ["追尾事故", "刮擦事故", "车辆抛锚", "货物洒落", "道路施工", "临时管制"]
